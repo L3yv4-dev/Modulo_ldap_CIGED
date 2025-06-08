@@ -1,6 +1,7 @@
-import {CreateDateColumn, Column, PrimaryGeneratedColumn, Entity } from "typeorm";
 
-@Entity()
+import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+
+@Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
@@ -8,6 +9,12 @@ export class User {
   @Column({ unique: true })
   username: string;
 
-  @CreateDateColumn()
-  createdAt: Date;
+  @Column()
+  email: string;
+
+  @Column({ nullable: true })
+  roles: string; // ejemplo: 'admin,user'
+
+  @Column({ nullable: true })
+  dn: string; // DN LDAP
 }

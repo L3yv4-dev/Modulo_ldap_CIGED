@@ -1,20 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+// import { IsString, IsNotEmpty } from 'class-validator';
 
 export class LoginDto {
-  @ApiProperty({
-    example: 'usuario-ldap',
-    description: 'Nombre de usuario para autenticación LDAP'
-  })
-  @IsNotEmpty()
-  @IsString()
+  @ApiProperty({ example: 'usuario123' })
+  // @IsString()
+  // @IsNotEmpty()
   username: string;
 
-  @ApiProperty({
-    example: 'contraseña-segura',
-    description: 'Contraseña del usuario'
-  })
-  @IsNotEmpty()
-  @IsString()
+  @ApiProperty({ example: 'password123' })
+  // @IsString()
+  // @IsNotEmpty()
   password: string;
 }

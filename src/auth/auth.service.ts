@@ -1,43 +1,64 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { authenticate } from 'ldap-authentication';
+import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import * as ldap from 'ldapjs';
-import { User } from 'src/users/user.entity';
-import { Repository } from 'typeorm';
+
 @Injectable()
 export class AuthService {
-    private client: ldap.Client;
+  private readonly ldapUrl = 'ldap://UCI.CU:389';
+  private readonly baseDN = 'dc=uci,dc=cu';
 
-    constructor(
-        private jwtService: JwtService,
-        @InjectRepository(User) private userRepository: Repository<User>,
-        private configService: ConfigService,
-    ){
-        const ldapUrl =  this.configService.get<string>('LDAP_URL') || 'ldap://localhost:389';
-        this.client = ldap.createClient({
-            url: ldapUrl,
-        });
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  async validateUser(username: string, password: string): Promise<any> {
+    console.log('usuario: ' + username + '\n' + 'pass: ' + password);
+    try {
+      // 1. Autenticación LDAP y obtención de datos del usuario
+      const user = await authenticate({
+        ldapOpts: {
+          url: this.ldapUrl,
+          connectTimeout: 3000, // Mejor manejo de tiempo de espera
+        },
+        userSearchBase: this.baseDN,
+        usernameAttribute: 'sAMAccountName', // Atributo de búsqueda
+        username: username, // Nombre de usuario proporcionado
+        userPassword: password, // Contraseña proporcionada
+        attributes: ['dn', 'mail', 'sAMAccountName'], // Datos requeridos
+      });
+ 
+      // 2. Validación de existencia del usuario
+      if (!user) {
+        throw new UnauthorizedException('Usuario no encontrado');
+      }
+
+      // 3. Sincronización con base de datos local
+      const userEntity = await this.usersService.createOrUpdate({
+        username: user.sAMAccountName,
+        email: user.mail,
+        dn: user.dn,
+        roles: 'user',
+      });
+
+      return userEntity;
+    } catch (error) {
+      // 4. Manejo unificado de errores
+      throw new UnauthorizedException('Credenciales inválidas');
     }
+  }
 
-    async authenticate(username:string, password:string): Promise<string>{
-        const userDn = `uid=${username},ou=users,dc=example,dc=com`;
-
-        return new Promise((resolve,reject)=>{
-            this.client.bind(userDn,password, async(error)=>{
-                if(error) return reject('Credenciales inválidas');
-
-                const user = await this.userRepository.findOne({where:{username}});
-
-                if(!user){
-                    //si el usuario no existe en base de datos lo crea (preguntar)
-                    // const newUser = this.userRepository.create({username});
-                    // await this.userRepository.save(newUser);
-                    // return reject('No exite el usuario');
-                }
-                const payload = {username};
-                resolve(this.jwtService.sign(payload));
-            });
-        });
-    }
+  async login(user: any) {
+    // 5. Generación del JWT (igual que antes)
+    const payload = { 
+      username: user.username, 
+      sub: user.id, 
+      roles: user.roles 
+    };
+    
+    return {
+      access_token: this.jwtService.sign(payload),
+    };
+  }
 }
