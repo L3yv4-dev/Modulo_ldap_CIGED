@@ -14,13 +14,16 @@ export class AuthController {
   @ApiResponse({ status: 201, description: 'Token JWT generado correctamente.' })
   @ApiResponse({ status: 401, description: 'Credenciales inválidas.' })
   async login(@Body() loginDto: LoginDto) {
+    
     const user = await this.authService.validateUser(
       loginDto.username,
       loginDto.password,
     );
+    
     if (!user) {
       throw new UnauthorizedException();
     }
     return this.authService.login(user);
   }
+
 }
